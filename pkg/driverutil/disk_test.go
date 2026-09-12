@@ -17,6 +17,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	"github.com/lima-vm/lima/v2/pkg/iso9660util"
+	"github.com/lima-vm/lima/v2/pkg/limatype"
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
 	"github.com/lima-vm/lima/v2/pkg/osutil"
 )
@@ -170,8 +171,10 @@ func TestMigrateDiskLayout_LegacyDiffDisk(t *testing.T) {
 
 	assert.NilError(t, os.WriteFile(diffDiskPath, []byte("legacy-disk"), 0o644))
 	origHash := sha256File(t, diffDiskPath)
-
-	assert.NilError(t, MigrateDiskLayout(instDir))
+	inst := &limatype.Instance{
+		Dir: instDir,
+	}
+	assert.NilError(t, MigrateDiskLayout(inst))
 
 	// disk should be a symlink to diffdisk
 	diskPath := filepath.Join(instDir, filenames.Disk)
@@ -191,8 +194,10 @@ func TestMigrateDiskLayout_LegacyISOBaseDisk(t *testing.T) {
 	baseHash := sha256File(t, baseDiskPath)
 	assert.NilError(t, os.WriteFile(diffDiskPath, []byte("legacy-disk"), 0o644))
 	diffHash := sha256File(t, diffDiskPath)
-
-	assert.NilError(t, MigrateDiskLayout(instDir))
+	inst := &limatype.Instance{
+		Dir: instDir,
+	}
+	assert.NilError(t, MigrateDiskLayout(inst))
 
 	// disk should be a symlink to diffdisk
 	diskPath := filepath.Join(instDir, filenames.Disk)
@@ -217,8 +222,10 @@ func TestMigrateDiskLayout_LegacyNonISOBaseDisk(t *testing.T) {
 	writeNonISO(t, baseDiskPath)
 	baseHash := sha256File(t, baseDiskPath)
 	assert.NilError(t, os.WriteFile(diffDiskPath, []byte("legacy-disk"), 0o644))
-
-	assert.NilError(t, MigrateDiskLayout(instDir))
+	inst := &limatype.Instance{
+		Dir: instDir,
+	}
+	assert.NilError(t, MigrateDiskLayout(inst))
 
 	// disk should be a symlink to diffdisk
 	diskPath := filepath.Join(instDir, filenames.Disk)
@@ -239,8 +246,10 @@ func TestMigrateDiskLayout_AlreadyMigrated(t *testing.T) {
 
 	assert.NilError(t, os.WriteFile(diskPath, []byte("current-disk"), 0o644))
 	origHash := sha256File(t, diskPath)
-
-	assert.NilError(t, MigrateDiskLayout(instDir))
+	inst := &limatype.Instance{
+		Dir: instDir,
+	}
+	assert.NilError(t, MigrateDiskLayout(inst))
 
 	// disk should be unchanged
 	assert.Equal(t, sha256File(t, diskPath), origHash)
