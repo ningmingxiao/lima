@@ -12,6 +12,36 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+func TestResolveSymlink(t *testing.T) {
+	dir := t.TempDir()
+
+	// A non-symlink is returned as is.
+	regular := filepath.Join(dir, "regular")
+	assert.NilError(t, os.WriteFile(regular, []byte(""), 0o644))
+	assert.Equal(t, ResolveSymlink(regular), regular)
+	assert.Equal(t, ResolveSymlink(filepath.Join(dir, "nonexistent")), filepath.Join(dir, "nonexistent"))
+
+	// A symlink to an existing file is resolved.
+	target := filepath.Join(dir, "target")
+	assert.NilError(t, os.WriteFile(target, []byte(""), 0o644))
+	link := filepath.Join(dir, "link")
+	assert.NilError(t, os.Symlink(target, link))
+	assert.Equal(t, ResolveSymlink(link), target)
+
+	// A dangling symlink is resolved too, so that the target can be created.
+	dangling := filepath.Join(dir, "dangling")
+	danglingTarget := filepath.Join(dir, "not-yet-created")
+	assert.NilError(t, os.Symlink(danglingTarget, dangling))
+	assert.Equal(t, ResolveSymlink(dangling), danglingTarget)
+
+	// A dangling relative symlink is resolved relative to the symlink's directory.
+	sub := filepath.Join(dir, "sub")
+	assert.NilError(t, os.MkdirAll(sub, 0o700))
+	relDangling := filepath.Join(sub, "rel-dangling")
+	assert.NilError(t, os.Symlink("rel-target", relDangling))
+	assert.Equal(t, ResolveSymlink(relDangling), filepath.Join(sub, "rel-target"))
+}
+
 func TestWriteFileBeneathDir(t *testing.T) {
 	base := t.TempDir()
 	dir := filepath.Join(base, "mnt")

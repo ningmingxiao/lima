@@ -25,6 +25,7 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/iso9660util"
 	"github.com/lima-vm/lima/v2/pkg/limatype"
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
+	"github.com/lima-vm/lima/v2/pkg/osutil"
 	"github.com/lima-vm/lima/v2/pkg/reflectutil"
 )
 
@@ -377,7 +378,10 @@ func (l *LimaHcsDriver) Create(_ context.Context) error {
 }
 
 func (l *LimaHcsDriver) CreateDisk(ctx context.Context) error {
-	disk := filepath.Join(l.Instance.Dir, filenames.Disk)
+	// The disk may be a symlink to a file outside of the instance directory
+	// (see driverutil.EnsureDiskSymlink); fsutil and the `disk.vhdx` hardlink
+	// must be applied to the target file instead of the symlink itself.
+	disk := osutil.ResolveSymlink(filepath.Join(l.Instance.Dir, filenames.Disk))
 	_, err := os.Stat(disk)
 	diskExisted := err == nil
 	if err != nil && !errors.Is(err, os.ErrNotExist) {

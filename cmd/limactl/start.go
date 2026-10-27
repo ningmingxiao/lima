@@ -365,7 +365,19 @@ func loadOrCreateInstance(cmd *cobra.Command, args []string, createOnly bool) (*
 		}
 	}
 	saveBrokenYAML := tty
-	return instance.Create(ctx, tmpl.Name, tmpl.Bytes, saveBrokenYAML)
+	// --disk-path only applies to a new instance; the existing instance is
+	// returned above, before this point.
+	diskDir, err := flags.GetString("disk-path")
+	if err != nil {
+		return nil, err
+	}
+	if diskDir != "" {
+		diskDir, err = filepath.Abs(diskDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return instance.Create(ctx, tmpl.Name, diskDir, tmpl.Bytes, saveBrokenYAML)
 }
 
 func applyYQExpressionToExistingInstance(ctx context.Context, inst *limatype.Instance, yq string) (*limatype.Instance, error) {

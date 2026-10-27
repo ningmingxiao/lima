@@ -50,8 +50,8 @@ Ansible:
 disk:
 - `image`: the downloaded VM image; renamed to `disk` or `iso` during setup
 - `image.ipsw`: hardlink to `image`, created for running `VZMacOSInstaller` that requires the image file to have the `.ipsw` suffix
-- `disk`: the VM disk (can be a symlink to legacy `diffdisk`)
-- `disk.vhdx`: hardlink to `disk` to pass a `.vhdx` path to HCS driver
+- `disk`: the VM disk (can be a symlink to legacy `diffdisk`, or to a disk file outside of the instance directory when the instance was created with `limactl create --disk-path=DIR`; `DIR` may be on another filesystem, in which case the image is copied into `DIR` instead of being renamed)
+- `disk.vhdx`: hardlink to `disk` to pass a `.vhdx` path to HCS driver (located next to the `disk` file)
 - `iso`: optional CDROM image for ISO-based installations (can be a symlink to legacy `basedisk`)
 - `basedisk`: legacy name for the downloaded image (pre-v2.1 instances; may remain as a qcow2 backing file)
 - `diffdisk`: legacy name for `disk` (pre-v2.1 instances)

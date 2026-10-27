@@ -428,7 +428,10 @@ func (l *LimaVzDriver) CreateDisk(ctx context.Context) error {
 //
 // After successful installation, `image.ipsw` and `image` are removed.
 func (l *LimaVzDriver) createDiskMacOSGuest(ctx context.Context) error {
-	disk := filepath.Join(l.Instance.Dir, filenames.Disk)
+	// The disk may be a symlink to a file outside of the instance directory
+	// (see driverutil.EnsureDiskSymlink); then the target file has to be
+	// created instead of the symlink itself.
+	disk := osutil.ResolveSymlink(filepath.Join(l.Instance.Dir, filenames.Disk))
 
 	diskSize, err := units.RAMInBytes(*l.Instance.Config.Disk)
 	if err != nil {

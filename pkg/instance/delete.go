@@ -8,10 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/lima-vm/lima/v2/pkg/driver/external/server"
 	"github.com/lima-vm/lima/v2/pkg/driverutil"
 	"github.com/lima-vm/lima/v2/pkg/limatype"
+	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
+	"github.com/lima-vm/lima/v2/pkg/osutil"
 )
 
 func Delete(ctx context.Context, inst *limatype.Instance, force bool) error {
@@ -29,10 +33,48 @@ func Delete(ctx context.Context, inst *limatype.Instance, force bool) error {
 			return fmt.Errorf("failed to unregister %#q: %w", inst.Dir, err)
 		}
 	}
+	if err := removeDiskTarget(inst.Dir); err != nil {
+		return fmt.Errorf("failed to remove the disk of %#q: %w", inst.Dir, err)
+	}
 	if err := os.RemoveAll(inst.Dir); err != nil {
 		return fmt.Errorf("failed to remove %#q: %w", inst.Dir, err)
 	}
 
+	return nil
+}
+
+// removeDiskTarget removes the disk file when `disk` is a symlink to a file
+// outside of the instance directory (see driverutil.EnsureDiskSymlink), because
+// removing the instance directory only removes the symlink.
+func removeDiskTarget(instDir string) error {
+	diskPath := filepath.Join(instDir, filenames.Disk)
+	if !osutil.IsSymlink(diskPath) {
+		return nil
+	}
+	target, err := os.Readlink(diskPath)
+	if err != nil {
+		return fmt.Errorf("failed to read symlink %#q: %w", diskPath, err)
+	}
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(instDir, target)
+	}
+	// Targets inside the instance directory (e.g. the legacy `diffdisk`) are
+	// removed together with the instance directory.
+	if rel, err := filepath.Rel(instDir, target); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return nil
+	}
+	// The HCS driver attaches the disk as a hardlink named `disk.vhdx` located
+	// next to the disk file, so remove it too when it refers to the same file.
+	if fi, err := os.Stat(target + ".vhdx"); err == nil {
+		if ti, err := os.Stat(target); err == nil && os.SameFile(fi, ti) {
+			if err := os.Remove(target + ".vhdx"); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("failed to remove %#q: %w", target+".vhdx", err)
+			}
+		}
+	}
+	if err := os.Remove(target); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove %#q: %w", target, err)
+	}
 	return nil
 }
 

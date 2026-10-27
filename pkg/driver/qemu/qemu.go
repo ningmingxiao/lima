@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/coreos/go-semver/semver"
@@ -30,6 +31,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 
+	contfs "github.com/containerd/continuity/fs"
 	"github.com/lima-vm/lima/v2/pkg/driver"
 	"github.com/lima-vm/lima/v2/pkg/fileutils"
 	"github.com/lima-vm/lima/v2/pkg/iso9660util"
@@ -140,8 +142,18 @@ func EnsureDisk(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("failed to run %v: %#q: %w", cmd.Args, string(out), err)
 		}
 	} else {
-		if err = os.Rename(imagePath, diskPath); err != nil {
-			return err
+		realDiskPath := osutil.ResolveSymlink(diskPath)
+		// The disk may be a symlink to a file outside of the instance so copy it to other disk
+		if err = os.Rename(imagePath, realDiskPath); err != nil {
+			if !errors.Is(err, syscall.EXDEV) {
+				return err
+			}
+			if err := contfs.CopyFile(imagePath, realDiskPath); err != nil {
+				return fmt.Errorf("failed to copy %#q into %#q: %w", imagePath, realDiskPath, err)
+			}
+			if err := os.Remove(imagePath); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

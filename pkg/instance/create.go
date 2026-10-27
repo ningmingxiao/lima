@@ -22,7 +22,11 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/version"
 )
 
-func Create(ctx context.Context, instName string, instConfig []byte, saveBrokenYAML bool) (*limatype.Instance, error) {
+// Create creates an instance named instName from instConfig bytes.
+// The instance directory defaults to`$LIMA_HOME/instName`.
+// When diskDirOverride is non-empty, the VM disk is created as
+// `$diskDirOverride/disk`, and `$LIMA_HOME/instName/disk` becomes a symlink to it.
+func Create(ctx context.Context, instName, diskDirOverride string, instConfig []byte, saveBrokenYAML bool) (*limatype.Instance, error) {
 	if instName == "" {
 		return nil, errors.New("got empty instName")
 	}
@@ -74,6 +78,12 @@ func Create(ctx context.Context, instName string, instConfig []byte, saveBrokenY
 			_ = os.RemoveAll(instDir)
 		}
 	}()
+
+	// The disk file itself is created later by the driver (CreateDisk), so only
+	// the symlink is created here.
+	if err := driverutil.EnsureDiskSymlink(instDir, diskDirOverride); err != nil {
+		return nil, err
+	}
 
 	if err := os.WriteFile(filePath, instConfig, 0o644); err != nil {
 		return nil, err
